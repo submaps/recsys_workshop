@@ -10,7 +10,7 @@ st.set_page_config(page_title="IMDb Movie Recommender", layout="wide")
 # 1. Загрузка данных и кэширование, чтобы интерфейс не зависал
 @st.cache_data
 def load_data():
-    data_path = '/Users/akuteuov/PycharmProjects/recsys_tutor/imdb_top_1000_img.csv'
+    data_path = './imdb_top_1000_img.csv'
     df = pd.read_csv(data_path)
 
     df.rename(columns={
