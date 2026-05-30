@@ -10,7 +10,7 @@ st.set_page_config(page_title="IMDb Movie Recommender", layout="wide")
 # 1. Загрузка данных и кэширование, чтобы интерфейс не зависал
 @st.cache_data
 def load_data():
-    data_path = './imdb_top_1000_img.csv'
+    data_path = 'https://raw.githubusercontent.com/submaps/recsys_workshop/refs/heads/main/imdb_top_1000_img.csv'
     df = pd.read_csv(data_path)
 
     df.rename(columns={
@@ -36,24 +36,6 @@ df = load_data()
 cosine_sim = calculate_similarity_matrix(df)
 
 
-def get_recommendations(title, cosine_sim=cosine_sim, num_rec=5):
-    try:
-        idx = df[df["Title"] == title].index[0]
-    except IndexError:
-        return pd.DataFrame()
-
-    # Считаем попарное сходство всех фильмов с выбранным
-    sim_scores = list(enumerate(cosine_sim[idx]))
-
-    # Сортируем по убыванию скора сходства
-    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-
-    # Берем топ-N схожих фильмов (пропуская самый первый — он является самим фильмом)
-    sim_scores = sim_scores[1 : num_rec + 1]
-
-    movie_indices = [i[0] for i in sim_scores]
-    return df.iloc[movie_indices]
-
 def get_recommendations_multi(titles, cosine_sim=cosine_sim, num_rec=5):
     rec_list = []
     for title in titles:
@@ -75,8 +57,9 @@ def get_recommendations_multi(titles, cosine_sim=cosine_sim, num_rec=5):
         rec_cands = df.iloc[movie_indices]
         rec_list.append(rec_cands)
     res_df = pd.concat(rec_list, ignore_index=True)
-    res_df = res_df.query('Title not in @titles')
-    return res_df.reset_index(drop=True)
+    res_df = res_df.query('Title not in @titles').drop_duplicates('Title')
+    res_df = res_df.reset_index(drop=True).iloc[:num_rec]
+    return res_df
 
 
 # --- ИНТЕРФЕЙС STREAMLIT ---
@@ -101,8 +84,8 @@ with col1:
     num_recommendations = st.slider(
         "Сколько фильмов порекомендовать?",
         min_value=1,
-        max_value=5,
-        value=3,
+        max_value=20,
+        value=5,
     )
 
     generate_btn = st.button("Найти похожие", type="primary")
@@ -130,10 +113,7 @@ with col2:
         recommendations = get_recommendations_multi(
             selected_movies, num_rec=num_recommendations
         )
-
-        # recommendations = get_recommendations(
-        #     selected_movie, num_rec=num_recommendations
-        # )
+        
         print(recommendations)
 
         if not recommendations.empty:
@@ -145,10 +125,10 @@ with col2:
             print('cols:', cols, 'rows:', rows)
 
             rec_cols = st.columns(cols)
+            index = 0
             for i in range(rows):
                 for j in range(cols):
-                    index = i + j - 1
-                    if index < len(recommendations):
+                    if index < n:
                         cell = recommendations.iloc[index]
                         with rec_cols[j]:
                             # Оформляем карточку фильма с помощью markdown-контейнера
@@ -163,5 +143,4 @@ with col2:
                                 """,
                                 unsafe_allow_html=True,
                             )
-        else:
-            st.error("Ошибка при генерации рекомендаций.")
+                        index += 1
